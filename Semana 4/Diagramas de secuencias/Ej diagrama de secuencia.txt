@@ -1,0 +1,65 @@
+@startuml
+title Diagrama de Secuencia - Reserva de Laboratorio
+
+actor Solicitante
+participant "Interfaz Web" as Web
+participant "Servicio de Reservas" as SR
+participant "Laboratorio" as Lab
+participant "Repositorio de Reservas" as Repo
+participant "Reserva" as Reserva
+participant "Notificador" as Notif
+
+Solicitante -> Web : solicitarReserva(lab, fechaInicio, fechaFin, propósito)
+activate Web
+
+Web -> SR : solicitarReserva(idLab, fechaInicio, fechaFin, propósito)
+activate SR
+
+SR -> Lab : verificarHorario(fechaInicio, fechaFin)
+activate Lab
+Lab -> SR : validarReserva(fechaInicio, fechaFin)
+SR --> Lab : validación
+Lab --> SR : horario válido
+deactivate Lab
+
+SR -> Repo : buscarReservasAprobadas(idLab)
+activate Repo
+Repo --> SR : reservasAprobadas
+deactivate Repo
+
+loop por cada reserva aprobada
+    SR -> Reserva : seTraslapa(fechaInicio, fechaFin)
+    activate Reserva
+    Reserva --> SR : resultado
+    deactivate Reserva
+end
+
+alt No hay traslape
+    SR -> Reserva ** : crearReserva(idLab, fechaInicio, fechaFin, propósito)
+    SR -> Repo : guardarReserva(reserva)
+    activate Repo
+    Repo --> SR : reserva guardada
+    deactivate Repo
+
+    SR -> Notif : notificarEncargado(reserva)
+    activate Notif
+    Notif --> SR : notificación enviada
+    deactivate Notif
+
+    SR --> Web : reservaConfirmada
+    Web --> Solicitante : mostrarConfirmación()
+
+else Hay traslape
+    SR --> Web : error("Horario ocupado")
+
+    Web -> SR : consultarDisponibilidad(idLab, fecha)
+    activate SR
+    SR --> Web : horariosLibres
+    deactivate SR
+
+    Web --> Solicitante : mostrarRechazo y horariosLibres
+end
+
+deactivate SR
+deactivate Web
+@enduml
